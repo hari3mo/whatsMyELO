@@ -132,7 +132,8 @@ def filter_games(games):
             continue
         if range_counts[white_range] >= TARGET_PER_RANGE: # skip if already extracted 20,000 games in this ELO range
             continue
-        if get_time_category(headers.get('TimeControl', '')) not in TIME_CONTROL_FILTER: # skip games with unwanted time controls
+        time_control_str = headers.get('TimeControl', '')
+        if get_time_category(time_control_str) not in TIME_CONTROL_FILTER: # skip games with unwanted time controls
             continue
         white_player, black_player = headers.get('White', ''), headers.get('Black', '')
         if player_counts.get(white_player, 0) >= MAX_GAMES_PER_PLAYER: # skip if already extracted 5 games from this player
@@ -141,6 +142,16 @@ def filter_games(games):
             continue
         first_move = game.next()
         if first_move is None or '%eval' not in first_move.comment: # skip games with no engineevaluation
+            continue
+        next_move = first_move.next()
+        if next_move is None:
+            continue
+        base_time = int(time_control_str.split('+')[0])
+        w_clock = get_clock_time(first_move.comment)
+        b_clock = get_clock_time(next_move.comment)
+        if not w_clock or not b_clock:
+            continue
+        if w_clock < (base_time * 0.6) or b_clock < (base_time * 0.6): # skip if 50% of base time reduced before first move ('Berserk' mode)
             continue
 
         range_counts[white_range] += 1
@@ -166,16 +177,18 @@ def stream_games():
             yield g
 
 def main():
-    rows = []
-    for game in filter_games(stream_games()):
-        rows.append(extract_row(game))
-    print(f'Writing {len(rows)} rows to CSV...')
-    df = pd.DataFrame(rows, columns=CSV_COLUMNS)
-    df.to_csv(OUTPUT_PATH, index=False)
+    if not os.path.exists(OUTPUT_PATH):
+        rows = []
+        for game in filter_games(stream_games()):
+            rows.append(extract_row(game))
+        print(f'Writing {len(rows)} rows to CSV...')
+        df = pd.DataFrame(rows, columns=CSV_COLUMNS)
+        df.to_csv(OUTPUT_PATH, index=False)
+    else:
+        print(f'{OUTPUT_PATH} already exists.')
 
 if __name__ == "__main__":
-    if not os.path.exists(OUTPUT_PATH):
-        start_time = time.time()
-        main()
-        end_time = time.time()
-        print(f'Total execution time: {(end_time - start_time) / 60} minutes')
+    start_time = time.time()
+    main()
+    end_time = time.time()
+    print(f'Total execution time: {(end_time - start_time) / 60} minutes')
