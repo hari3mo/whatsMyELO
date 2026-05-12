@@ -1,22 +1,27 @@
 import zstandard as zstd
-import chess
+import pandas as pd
+import chess.pgn
+import time
 import re
 import io
+import os
 
-RAW_PGN_PATH = 'data/lichess_db_standard_rated_2023-12.pgn.zst' # path to raw PGN file downloaded from https://database.lichess.org/ (January 2026)
-RAW_CSV_OUTPUT_PATH = 'data/lichess_games.csv'
-FINAL_CSV_OUTPUT_PATH = 'data/games.csv'
+PGN_PATH = 'data/lichess_db_standard_rated_2026-01.pgn.zst' # archive of raw PGN files downloaded from https://database.lichess.org/ (January 2026)
+OUTPUT_PATH = 'data/lichess_games.csv'
 
 ELO_RANGES = [
-    ('<1400', 0, 1400),
-    ('1400_1700', 1400, 1700),
-    ('1700_2000', 1700, 2000),
-    ('2000_2300', 2000, 2300),
-    ('2300<', 2300, 10_000)
+    ('800-', 0, 800),
+    ('[800, 1100)', 800, 1100),
+    ('[1100, 1400)', 1100, 1400),
+    ('[1400, 1700)', 1400, 1700),
+    ('[1700, 2000)', 1700, 2000),
+    ('[2000, 2300)', 2000, 2300),
+    ('2300+', 2300, 10_000)
 ]
-TARGET_PER_RANGE = 20_000 # number of games to extract per ELO range; 5 ranges * 20K = 100K total
+
+TARGET_PER_RANGE = 20_000 # number of games to extract per ELO range; 7 ranges * 20K rows = 140K total
 MAX_GAMES_PER_PLAYER = 5 # per-player cap to keep the sample diverse
-TIME_CONTROL_FILTER = {'blitz', 'rapid', 'classical'} # filter out bullet and unknown time controls (noisy)
+TIME_CONTROL_FILTER = {'blitz', 'rapid', 'classical'} # filter out bullet and correspondence time controls (noisy)
 
 EVAL_REGEX = re.compile(r'\[%eval (#?-?[\d.]+)\]') # captures either a centipawn eval ('0.34', -1.2') or a mate score ('#3', '#-5')
 CLOCK_REGEX  = re.compile(r'\[%clk (\d+):(\d+):(\d+)\]') # captures hours, minutes, seconds as integers
@@ -24,8 +29,8 @@ CLOCK_REGEX  = re.compile(r'\[%clk (\d+):(\d+):(\d+)\]') # captures hours, minut
 CSV_COLUMNS = [
     'game_id', 'event', 'white', 'black', 'white_elo', 'black_elo',
     'white_rating_diff', 'black_rating_diff', 'white_title', 'black_title',
-    'result', 'eco', 'opening', 'time_control', 'termination', 'utc_date', 
-    'utc_time', 'ply_count', 'moves', 'evals', 'clocks'
+    'result', 'eco', 'opening', 'time_control', 'category', 'termination', 
+    'utc_date', 'utc_time', 'ply_count', 'moves', 'evals', 'clocks'
 ]
 
 # Extracts ELO range
@@ -33,11 +38,12 @@ def get_elo_range(elo):
     for label, low, high in ELO_RANGES:
         if low <= elo < high:
             return label
-    return None
 
 # Extracts time control category
 def get_time_category(time_control_str):
-    base, increment = time_control_str.split("+")
+    if time_control_str == '-':
+        return None
+    base, increment = time_control_str.split('+')
     total = int(base) + 40 * int(increment)
     if total < 180:   
         return 'bullet'
@@ -97,6 +103,7 @@ def extract_row(game):
         'eco': headers.get('ECO', ''),
         'opening': headers.get('Opening', ''),
         'time_control': headers.get('TimeControl', ''),
+        'category': get_time_category(headers.get('TimeControl', '')),
         'termination': headers.get('Termination', ''),
         'utc_date': headers.get('UTCDate', ''),
         'utc_time': headers.get('UTCTime', ''),
@@ -108,22 +115,24 @@ def extract_row(game):
 
 # Filter games
 def filter_games(games):
-    band_counts = {label: 0 for label, min_elo, max_elo in ELO_RANGES}
+    range_counts = {label: 0 for label, min_elo, max_elo in ELO_RANGES}
     player_counts = {}
     total_games = TARGET_PER_RANGE * len(ELO_RANGES)
-    kept_games = []
+    filtered_games = []
+    parsed_games = 0
 
     for game in games:
+        parsed_games += 1
         headers = game.headers
-        white_elo, black_elo = int(headers.get("WhiteElo", 0)), int(headers.get("BlackElo", 0))
+        white_elo, black_elo = int(headers.get('WhiteElo', 0)), int(headers.get('BlackElo', 0))
         if not (white_elo and black_elo): # skip games with missing ELO info
             continue
-        if get_time_category(headers.get('TimeControl', '')) not in TIME_CONTROL_FILTER: # skip games with unwanted time controls
-            continue 
         white_range, black_range = get_elo_range(white_elo), get_elo_range(black_elo)
-        if white_range is None or black_range is None: # skip games with ELOs outside ranges
+        if white_range is None or black_range is None: # skip games with outside of ELO ranges
             continue
-        if band_counts[white_range] >= TARGET_PER_RANGE: # skip if already extracted 20,000 games in this ELO range
+        if range_counts[white_range] >= TARGET_PER_RANGE: # skip if already extracted 20,000 games in this ELO range
+            continue
+        if get_time_category(headers.get('TimeControl', '')) not in TIME_CONTROL_FILTER: # skip games with unwanted time controls
             continue
         white_player, black_player = headers.get('White', ''), headers.get('Black', '')
         if player_counts.get(white_player, 0) >= MAX_GAMES_PER_PLAYER: # skip if already extracted 5 games from this player
@@ -131,33 +140,42 @@ def filter_games(games):
         if player_counts.get(black_player, 0) >= MAX_GAMES_PER_PLAYER:
             continue
         first_move = game.next()
-        if first_move is None or '%eval' not in first_move.comment: # skip games with no first move/evaluation
+        if first_move is None or '%eval' not in first_move.comment: # skip games with no engineevaluation
             continue
 
-        band_counts[white_range] += 1
+        range_counts[white_range] += 1
         player_counts[white_player] = player_counts.get(white_player, 0) + 1
         player_counts[black_player] = player_counts.get(black_player, 0) + 1
-        kept_games.append(game)
+        filtered_games.append(game)
 
-        if len(kept_games) % 5_000 == 0:
-            print(f"kept {len(kept_games):,}  bands={band_counts}")
+        if len(filtered_games) % 1_000 == 0: # print debug info every 1,000 games
+            print(f'{time.strftime('%H:%M:%S')} - {len(filtered_games)}/{parsed_games} games: {range_counts}')
 
-        if sum(band_counts.values()) >= total_games:
+        if len(filtered_games) >= total_games or sum(range_counts.values()) >= total_games:
             break
 
-    return kept_games
+    return filtered_games
 
-# Sequentially read games from pgn.zst file; file is too large to fit in memory (~30 gb)
+# Sequentially read games from compressed pgn.zst file; too large to fit in memory (~30 gb)
 # **Code from Gemini**
 def stream_games():
     dctx = zstd.ZstdDecompressor(max_window_size=2**31)
-    with open(RAW_PGN_PATH, "rb") as fh, dctx.stream_reader(fh) as reader:
+    with open(PGN_PATH, "rb") as fh, dctx.stream_reader(fh) as reader:
         text = io.TextIOWrapper(reader, encoding="utf-8", errors="replace")
         while (g := chess.pgn.read_game(text)) is not None:
             yield g
 
 def main():
-    ...
+    rows = []
+    for game in filter_games(stream_games()):
+        rows.append(extract_row(game))
+    print(f'Writing {len(rows)} rows to CSV...')
+    df = pd.DataFrame(rows, columns=CSV_COLUMNS)
+    df.to_csv(OUTPUT_PATH, index=False)
 
 if __name__ == "__main__":
-    main()
+    if not os.path.exists(OUTPUT_PATH):
+        start_time = time.time()
+        main()
+        end_time = time.time()
+        print(f'Total execution time: {(end_time - start_time) / 60} minutes')
