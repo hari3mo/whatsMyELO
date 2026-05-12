@@ -65,7 +65,7 @@ def get_game_id(url):
 
 # Extract game/PGN as a CSV row
 def extract_row(game):
-    header = game.headers
+    headers = game.headers
     moves, evals, clocks = [], [], []
     node = game
     while node.variations:
@@ -77,23 +77,23 @@ def extract_row(game):
         clocks.append('' if clock is None else str(clock))
 
     return {
-        'game_id': get_game_id(header.get('Site', '')),
-        'event': header.get('Event', ''),
-        'white': header.get('White', ''),
-        'black': header.get('Black', ''),
-        'white_elo': header.get('WhiteElo', ''),
-        'black_elo': header.get('BlackElo', ''),
-        'white_rating_diff': header.get('WhiteRatingDiff', ''),
-        'black_rating_diff': header.get('BlackRatingDiff', ''),
-        'white_title': header.get('WhiteTitle', ''),
-        'black_title': header.get('BlackTitle', ''),
-        'result': header.get('Result', ''),
-        'eco': header.get('ECO', ''),
-        'opening': header.get('Opening', ''),
-        'time_control': header.get('TimeControl', ''),
-        'termination': header.get('Termination', ''),
-        'utc_date': header.get('UTCDate', ''),
-        'utc_time': header.get('UTCTime', ''),
+        'game_id': get_game_id(headers.get('Site', '')),
+        'event': headers.get('Event', ''),
+        'white': headers.get('White', ''),
+        'black': headers.get('Black', ''),
+        'white_elo': headers.get('WhiteElo', ''),
+        'black_elo': headers.get('BlackElo', ''),
+        'white_rating_diff': headers.get('WhiteRatingDiff', ''),
+        'black_rating_diff': headers.get('BlackRatingDiff', ''),
+        'white_title': headers.get('WhiteTitle', ''),
+        'black_title': headers.get('BlackTitle', ''),
+        'result': headers.get('Result', ''),
+        'eco': headers.get('ECO', ''),
+        'opening': headers.get('Opening', ''),
+        'time_control': headers.get('TimeControl', ''),
+        'termination': headers.get('Termination', ''),
+        'utc_date': headers.get('UTCDate', ''),
+        'utc_time': headers.get('UTCTime', ''),
         'ply_count': len(moves),
         'moves': ' '.join(moves),
         'evals': ';'.join(evals),
