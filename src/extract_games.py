@@ -7,10 +7,6 @@ RAW_PGN_PATH = 'data/lichess_db_standard_rated_2023-12.pgn.zst' # path to raw PG
 RAW_CSV_OUTPUT_PATH = 'data/lichess_games.csv'
 FINAL_CSV_OUTPUT_PATH = 'data/games.csv'
 
-TARGET_PER_ELO_RANGE = 20_000 # number of games to extract per ELO range; 5 ranges * 20K = 100K total
-MAX_GAMES_PER_PLAYER = 5 # per-player cap to keep the sample diverse
-TIME_CONTROL_FILTER = {'blitz', 'rapid', 'classical'} # filter out bullet and unknown time controls (noisy)
-
 ELO_RANGES = [
     ('<1400', 0, 1400),
     ('1400_1700', 1400, 1700),
@@ -18,6 +14,9 @@ ELO_RANGES = [
     ('2000_2300', 2000, 2300),
     ('2300<', 2300, 10_000)
 ]
+TARGET_PER_RANGE = 20_000 # number of games to extract per ELO range; 5 ranges * 20K = 100K total
+MAX_GAMES_PER_PLAYER = 5 # per-player cap to keep the sample diverse
+TIME_CONTROL_FILTER = {'blitz', 'rapid', 'classical'} # filter out bullet and unknown time controls (noisy)
 
 EVAL_REGEX = re.compile(r'\[%eval (#?-?[\d.]+)\]') # captures either a centipawn eval ('0.34', -1.2') or a mate score ('#3', '#-5')
 CLOCK_REGEX  = re.compile(r'\[%clk (\d+):(\d+):(\d+)\]') # captures hours, minutes, seconds as integers
@@ -37,7 +36,7 @@ def get_elo_range(elo):
     return None
 
 # Extracts time control category
-def get_time_control_category(time_control_str):
+def get_time_category(time_control_str):
     base, increment = time_control_str.split("+")
     total = int(base) + 40 * int(increment)
     if total < 180:   
@@ -106,6 +105,47 @@ def extract_row(game):
         'evals': ';'.join(evals),
         'clocks': ';'.join(clocks)
     }
+
+# Filter games
+def filter_games(games):
+    band_counts = {label: 0 for label, min_elo, max_elo in ELO_RANGES}
+    player_counts = {}
+    total_games = TARGET_PER_RANGE * len(ELO_RANGES)
+    kept_games = []
+
+    for game in games:
+        headers = game.headers
+        white_elo, black_elo = int(headers.get("WhiteElo", 0)), int(headers.get("BlackElo", 0))
+        if not (white_elo and black_elo): # skip games with missing ELO info
+            continue
+        if get_time_category(headers.get('TimeControl', '')) not in TIME_CONTROL_FILTER: # skip games with unwanted time controls
+            continue 
+        white_range, black_range = get_elo_range(white_elo), get_elo_range(black_elo)
+        if white_range is None or black_range is None: # skip games with ELOs outside ranges
+            continue
+        if band_counts[white_range] >= TARGET_PER_RANGE: # skip if already extracted 20,000 games in this ELO range
+            continue
+        white_player, black_player = headers.get('White', ''), headers.get('Black', '')
+        if player_counts.get(white_player, 0) >= MAX_GAMES_PER_PLAYER: # skip if already extracted 5 games from this player
+            continue
+        if player_counts.get(black_player, 0) >= MAX_GAMES_PER_PLAYER:
+            continue
+        first_move = game.next()
+        if first_move is None or '%eval' not in first_move.comment: # skip games with no first move/evaluation
+            continue
+
+        band_counts[white_range] += 1
+        player_counts[white_player] = player_counts.get(white_player, 0) + 1
+        player_counts[black_player] = player_counts.get(black_player, 0) + 1
+        kept_games.append(game)
+
+        if len(kept_games) % 5_000 == 0:
+            print(f"kept {len(kept_games):,}  bands={band_counts}")
+
+        if sum(band_counts.values()) >= total_games:
+            break
+
+    return kept_games
 
 # Sequentially read games from pgn.zst file; file is too large to fit in memory (~30 gb)
 # **Code from Gemini**
