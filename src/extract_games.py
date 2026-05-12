@@ -13,7 +13,7 @@ ELO_RANGES = [
 ]
 
 EVAL_RE = re.compile(r'\[%eval (#?-?[\d.]+)\]') # captures either a centipawn eval ('0.34', -1.2') or a mate score ('#3', '#-5')
-CLK_RE  = re.compile(r'\[%clk (\d+):(\d+):(\d+)\]') # captures hours, minutes, seconds as integers
+CLOCK_RE  = re.compile(r'\[%clk (\d+):(\d+):(\d+)\]') # captures hours, minutes, seconds as integers
 
 CSV_COLUMNS = [
     'game_id', 'event', 'white', 'black', 'white_elo', 'black_elo',
