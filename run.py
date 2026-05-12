@@ -1,4 +1,5 @@
 from src import extract_games
+from src import create_features
 import time
 
 if __name__ == "__main__":
@@ -7,6 +8,8 @@ if __name__ == "__main__":
     print('Extracting games...')
     extract_games.main()
     # Step 2: Feature engineering
+    print('Creating features...')
+    create_features.main()
     ...
     # Step 3: Model training
     ...
