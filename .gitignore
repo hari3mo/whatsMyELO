@@ -1,5 +1,5 @@
 .DS_Store
 env/
-data/*.pgn.zst
+data/
 notebooks/
 **/__pycache__/
