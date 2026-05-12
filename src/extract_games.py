@@ -1,4 +1,11 @@
+import zstandard as zstd
+import chess
 import re
+import io
+
+RAW_PGN_PATH = 'data/lichess_db_standard_rated_2023-12.pgn.zst' # path to raw PGN file downloaded from https://database.lichess.org/ (January 2026)
+RAW_CSV_OUTPUT_PATH = 'data/lichess_games.csv'
+FINAL_CSV_OUTPUT_PATH = 'data/games.csv'
 
 TARGET_PER_ELO_RANGE = 20_000 # number of games to extract per ELO range; 5 ranges * 20K = 100K total
 MAX_GAMES_PER_PLAYER = 5 # per-player cap to keep the sample diverse
@@ -9,7 +16,7 @@ ELO_RANGES = [
     ('1400_1700', 1400, 1700),
     ('1700_2000', 1700, 2000),
     ('2000_2300', 2000, 2300),
-    ('2300<', 2300, 10_000),
+    ('2300<', 2300, 10_000)
 ]
 
 EVAL_REGEX = re.compile(r'\[%eval (#?-?[\d.]+)\]') # captures either a centipawn eval ('0.34', -1.2') or a mate score ('#3', '#-5')
@@ -19,7 +26,7 @@ CSV_COLUMNS = [
     'game_id', 'event', 'white', 'black', 'white_elo', 'black_elo',
     'white_rating_diff', 'black_rating_diff', 'white_title', 'black_title',
     'result', 'eco', 'opening', 'time_control', 'termination', 'utc_date', 
-    'utc_time', 'ply_count', 'moves', 'evals', 'clocks',
+    'utc_time', 'ply_count', 'moves', 'evals', 'clocks'
 ]
 
 # Extracts ELO range
@@ -97,12 +104,17 @@ def extract_row(game):
         'ply_count': len(moves),
         'moves': ' '.join(moves),
         'evals': ';'.join(evals),
-        'clocks': ';'.join(clocks),
+        'clocks': ';'.join(clocks)
     }
 
 # Sequentially read games from pgn.zst file; file is too large to fit in memory (~30 gb)
-def stream_games(path):
-    ...
+# **Code from Gemini**
+def stream_games():
+    dctx = zstd.ZstdDecompressor(max_window_size=2**31)
+    with open(RAW_PGN_PATH, "rb") as fh, dctx.stream_reader(fh) as reader:
+        text = io.TextIOWrapper(reader, encoding="utf-8", errors="replace")
+        while (g := chess.pgn.read_game(text)) is not None:
+            yield g
 
 def main():
     ...
