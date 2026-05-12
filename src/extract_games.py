@@ -63,6 +63,47 @@ def get_clock_time(comment):
 def get_game_id(url):
     return url.split('/')[-1]
 
+# Extract game/PGN as a CSV row
+def extract_row(game):
+    header = game.headers
+    moves, evals, clocks = [], [], []
+    node = game
+    while node.variations:
+        node = node.variation(0)
+        moves.append(node.san())
+        evaluation = get_evaluation_score(node.comment)
+        evals.append('' if evaluation is None else f'{evaluation:g}')
+        clock = get_clock_time(node.comment)
+        clocks.append('' if clock is None else str(clock))
+
+    return {
+        'game_id': get_game_id(header.get('Site', '')),
+        'event': header.get('Event', ''),
+        'white': header.get('White', ''),
+        'black': header.get('Black', ''),
+        'white_elo': header.get('WhiteElo', ''),
+        'black_elo': header.get('BlackElo', ''),
+        'white_rating_diff': header.get('WhiteRatingDiff', ''),
+        'black_rating_diff': header.get('BlackRatingDiff', ''),
+        'white_title': header.get('WhiteTitle', ''),
+        'black_title': header.get('BlackTitle', ''),
+        'result': header.get('Result', ''),
+        'eco': header.get('ECO', ''),
+        'opening': header.get('Opening', ''),
+        'time_control': header.get('TimeControl', ''),
+        'termination': header.get('Termination', ''),
+        'utc_date': header.get('UTCDate', ''),
+        'utc_time': header.get('UTCTime', ''),
+        'ply_count': len(moves),
+        'moves': ' '.join(moves),
+        'evals': ';'.join(evals),
+        'clocks': ';'.join(clocks),
+    }
+
+# Sequentially read games from pgn.zst file; file is too large to fit in memory (~30 gb)
+def stream_games(path):
+    ...
+
 def main():
     ...
 
