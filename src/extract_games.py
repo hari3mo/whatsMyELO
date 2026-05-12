@@ -53,7 +53,11 @@ def get_evaluation_score(comment):
 
 # Extracts clock time in seconds
 def get_clock_time(comment):
-    ...
+    match = CLOCK_REGEX.search(comment)
+    if not match:
+        return None
+    hours, minutes, seconds = map(int, match.groups())
+    return hours * 3600 + minutes * 60 + seconds
 
 def main():
     ...
