@@ -16,14 +16,8 @@ EVAL_RE = re.compile(r'\[%eval (#?-?[\d.]+)\]') # captures either a centipawn ev
 CLK_RE  = re.compile(r'\[%clk (\d+):(\d+):(\d+)\]') # captures hours, minutes, seconds as integers
 
 CSV_COLUMNS = [
-    'game_id', 'event',
-    'white', 'black',
-    'white_elo', 'black_elo',
-    'white_rating_diff', 'black_rating_diff',
-    'white_title', 'black_title',
-    'result', 'eco', 'opening',
-    'time_control', 'termination',
-    'utc_date', 'utc_time',
-    'ply_count',
-    'moves', 'evals', 'clocks',
+    'game_id', 'event', 'white', 'black', 'white_elo', 'black_elo',
+    'white_rating_diff', 'black_rating_diff', 'white_title', 'black_title',
+    'result', 'eco', 'opening', 'time_control', 'termination', 'utc_date', 
+    'utc_time', 'ply_count', 'moves', 'evals', 'clocks',
 ]
