@@ -12,8 +12,8 @@ ELO_RANGES = [
     ('2300<', 2300, 10_000),
 ]
 
-EVAL_RE = re.compile(r'\[%eval (#?-?[\d.]+)\]') # captures either a centipawn eval ('0.34', -1.2') or a mate score ('#3', '#-5')
-CLOCK_RE  = re.compile(r'\[%clk (\d+):(\d+):(\d+)\]') # captures hours, minutes, seconds as integers
+EVAL_REGEX = re.compile(r'\[%eval (#?-?[\d.]+)\]') # captures either a centipawn eval ('0.34', -1.2') or a mate score ('#3', '#-5')
+CLOCK_REGEX  = re.compile(r'\[%clk (\d+):(\d+):(\d+)\]') # captures hours, minutes, seconds as integers
 
 CSV_COLUMNS = [
     'game_id', 'event', 'white', 'black', 'white_elo', 'black_elo',
@@ -43,7 +43,13 @@ def get_time_control_category(time_control_str):
 
 # Extracts evaluation score
 def get_evaluation_score(comment):
-    ...
+    match = EVAL_REGEX.search(comment)
+    if not match:
+        return None
+    evaluation = match.group(1)
+    if evaluation.startswith('#'):
+        return 100.0 if int(evaluation[1:]) > 0 else -100.0
+    return float(evaluation)
 
 # Extracts clock time in seconds
 def get_clock_time(comment):
