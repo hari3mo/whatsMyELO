@@ -49,7 +49,8 @@ def get_evaluation_score(comment):
 def get_clock_time(comment):
     ...
 
+def main():
+    ...
 
-
-
-
+if __name__ == "__main__":
+    main()

@@ -1,3 +1,4 @@
 env/
 data/*.pgn.zst
 notebooks/
+**/__pycache__/
