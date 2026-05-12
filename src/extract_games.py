@@ -59,6 +59,10 @@ def get_clock_time(comment):
     hours, minutes, seconds = map(int, match.groups())
     return hours * 3600 + minutes * 60 + seconds
 
+# Extracts game ID from lichess url
+def get_game_id(url):
+    return url.split('/')[-1]
+
 def main():
     ...
 
