@@ -23,10 +23,30 @@ def create_player_features(game):
     white_time_spent = time_spent[0::2]
     black_time_spent = time_spent[1::2]
 
-    white_shift = white_time_spent[np.abs(diffs[0::2]) > 100] # time spent on moves with significant change in centipawns 
-    black_shift = black_time_spent[np.abs(diffs[1::2]) > 100]
- 
-    return pd.Series([evals, clocks])
+    white_shift_time = white_time_spent[np.abs(diffs[0::2]) > 100] # time spent on moves with significant change in centipawns 
+    black_shift_time = black_time_spent[np.abs(diffs[1::2]) > 100]
+    
+    white_opening_time = white_time_spent[:5] # time spent on first 5 moves (opening phase of the game)
+    black_opening_time = black_time_spent[:5]
+
+    trouble_threhold = start_time * 0.1 # set 10% of initial clock time as threshold for time trouble
+
+    return pd.Series({
+        # Centipawn features
+        'w_acpl': np.mean(white_cpl), # average centipawn loss
+        'b_acpl': np.mean(black_cpl),
+        'eval_volatility': np.std(centipawns), # standard deviation of centipawns (quantifies how much the position fluctuated during the game)
+        
+        # Error features
+        'w_blunders': np.sum(white_cpl > 300), # inacuraccies <= 100 cpl < mistakes <= 300 cpl < blunders 
+        'b_blunders': np.sum(black_cpl > 300),
+        'w_mistakes': np.sum((white_cpl > 100) & (white_cpl <= 300)),
+        'b_mistakes': np.sum((black_cpl > 100) & (black_cpl <= 300)),
+        'w_inaccuracies': np.sum((white_cpl > 50) & (white_cpl <= 100)),
+        'b_inaccuracies': np.sum((black_cpl > 50) & (black_cpl <= 100)),
+
+    })
+
 
 def format_df():
     return
