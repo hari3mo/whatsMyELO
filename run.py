@@ -11,12 +11,11 @@ if __name__ == "__main__":
     extract_end = time.time()
     print(f'Game extraction completed in {extract_end - extract_start} seconds.')
     # Step 2: Feature engineering
-    features_start = time.time()
     print('Creating features...')
+    features_start = time.time()
     create_features.main()
     features_end = time.time()
     print(f'Feature creation completed in {features_end - features_start} seconds.')
-    ...
     # Step 3: Model training
     ...
     # Step 4: Model evaluation

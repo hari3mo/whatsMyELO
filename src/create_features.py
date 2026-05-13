@@ -55,7 +55,6 @@ def format_df(games):
     df = pd.read_csv(games)
     features_df = df.apply(create_player_features, axis=1)
     df = pd.concat([df, features_df], axis=1)
-
     df = df.dropna(subset=['w_acpl', 'b_acpl'])
     df[['w_shift_move_time', 'b_shift_move_time']] = \
         df[['w_shift_move_time', 'b_shift_move_time']].fillna(0)
@@ -85,7 +84,6 @@ def format_df(games):
     return features_df
 
 def main():
-    df = pd.read_csv(GAMES_CSV_PATH)
     features = format_df(GAMES_CSV_PATH)
     features.to_csv('data/lichess_features.csv', index=False)
     return
