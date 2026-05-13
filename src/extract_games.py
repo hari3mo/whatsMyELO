@@ -82,7 +82,7 @@ def extract_row(game):
     node = game
     while node.variations:
         node = node.variation(0)
-        moves.append(node.san())
+        moves.append(node.move.uci())
         evaluation = get_evaluation_score(node.comment)
         evals.append('' if evaluation is None else f'{evaluation:g}')
         clock = get_clock_time(node.comment)
@@ -173,8 +173,13 @@ def stream_games():
     dctx = zstd.ZstdDecompressor(max_window_size=2**31)
     with open(PGN_PATH, "rb") as fh, dctx.stream_reader(fh) as reader:
         text = io.TextIOWrapper(reader, encoding="utf-8", errors="replace")
-        while (g := chess.pgn.read_game(text)) is not None:
-            yield g
+        game_text = []
+        for line in text:
+            game_text.append(line)
+            if line.startswith("1. "):
+                if "%eval" in line:
+                    yield chess.pgn.read_game(io.StringIO("".join(game_text)))
+                game_text.clear()
 
 def main():
     if not os.path.exists(OUTPUT_PATH):
