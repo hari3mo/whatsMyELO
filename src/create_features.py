@@ -22,7 +22,10 @@ def create_player_features(game):
 
     white_time_spent = time_spent[0::2]
     black_time_spent = time_spent[1::2]
-    
+
+    white_shift = white_time_spent[np.abs(diffs[0::2]) > 100] # time spent on moves with significant change in centipawns 
+    black_shift = black_time_spent[np.abs(diffs[1::2]) > 100]
+ 
     return pd.Series([evals, clocks])
 
 def format_df():
