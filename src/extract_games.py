@@ -143,7 +143,7 @@ def filter_games(games):
         if player_counts.get(black_player, 0) >= MAX_GAMES_PER_PLAYER:
             continue
         first_move = game.next()
-        if first_move is None or '%eval' not in first_move.comment: # skip games with no engineevaluation
+        if first_move is None or '%eval' not in first_move.comment: # skip games with no engine evaluation
             continue
         next_move = first_move.next()
         if next_move is None:
@@ -151,7 +151,7 @@ def filter_games(games):
         base_time = int(time_control_str.split('+')[0])
         w_clock = get_clock_time(first_move.comment)
         b_clock = get_clock_time(next_move.comment)
-        if w_clock < (base_time * 0.6) or b_clock < (base_time * 0.6): # skip if 50% of base time reduced before first move ('Berserk' mode)
+        if w_clock < (base_time * 0.6) or b_clock < (base_time * 0.6): # skip if 40% of base time reduced before first move ('Berserk' mode)
             continue
         
         range_counts[white_range] += 1
@@ -193,7 +193,4 @@ def main():
         print(f'{OUTPUT_PATH} already exists.')
 
 if __name__ == "__main__":
-    start_time = time.time()
     main()
-    end_time = time.time()
-    print(f'Total execution time: {(end_time - start_time) / 60} minutes')
